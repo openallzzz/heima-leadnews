@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -71,7 +72,6 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
 
         // 4. 返回结果
         return ResponseResult.okResult(wmMaterial);
-
     }
 
     /**
@@ -93,6 +93,10 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
             lambdaQueryWrapper.eq(WmMaterial::getIsCollection, dto.getIsCollection());
         }
 
+        if(WmThreadLocalUtil.getUser() == null) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.TOKEN_REQUIRE);
+        }
+
         // 按照用户查询
         lambdaQueryWrapper.eq(WmMaterial::getUserId, WmThreadLocalUtil.getUser().getId());
 
@@ -106,5 +110,36 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
         result.setData(page.getRecords());
 
         return result;
+    }
+
+    /**
+     * 根据id删除素材
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult delPicture(Integer id) {
+        if(id == null) {
+            return ResponseResult.errorResult(501, "参数失效");
+        }
+
+        LambdaQueryWrapper<WmMaterial> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(WmMaterial::getId, id);
+
+        List<WmMaterial> list = list(lambdaQueryWrapper);
+
+        if(list == null || list.size() == 0) {
+            return ResponseResult.errorResult(1002, "数据不存在");
+        }
+
+        try {
+            remove(lambdaQueryWrapper);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseResult.errorResult(501, "文件删除失败");
+        }
+
+        return ResponseResult.okResult(200,"操作成功");
     }
 }
