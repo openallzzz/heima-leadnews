@@ -3,7 +3,6 @@ package com.heima.wemedia.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.heima.file.service.FileStorageService;
 import com.heima.model.common.dtos.PageResponseResult;
@@ -33,6 +32,9 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
 
     @Autowired
     private FileStorageService fileStorageService;
+
+    @Autowired
+    private WmMaterialMapper wmMaterialMapper;
 
     /**
      * 素材的图片上传
@@ -120,8 +122,8 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
      */
     @Override
     public ResponseResult delPicture(Integer id) {
-        if(id == null) {
-            return ResponseResult.errorResult(501, "参数失效");
+        if(id == null || id < 1) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
         }
 
         LambdaQueryWrapper<WmMaterial> lambdaQueryWrapper = new LambdaQueryWrapper<>();
@@ -130,7 +132,7 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
         List<WmMaterial> list = list(lambdaQueryWrapper);
 
         if(list == null || list.size() == 0) {
-            return ResponseResult.errorResult(1002, "数据不存在");
+            return ResponseResult.errorResult(AppHttpCodeEnum.DATA_NOT_EXIST);
         }
 
         try {
@@ -141,5 +143,37 @@ public class WmMaterialServiceImpl extends ServiceImpl<WmMaterialMapper, WmMater
         }
 
         return ResponseResult.okResult(200,"操作成功");
+    }
+
+    /**
+     * 根据id取消收藏素材
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult cancelCollect(Integer id) {
+        if(id == null || id < 1) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        wmMaterialMapper.updateCollect(id, (short)0);
+        return ResponseResult.okResult(200, "操作成功");
+    }
+
+    /**
+     * 根据id收藏素材
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult collect(Integer id) {
+        if(id == null || id < 1) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        wmMaterialMapper.updateCollect(id, (short)1);
+        return ResponseResult.okResult(200, "操作成功");
     }
 }

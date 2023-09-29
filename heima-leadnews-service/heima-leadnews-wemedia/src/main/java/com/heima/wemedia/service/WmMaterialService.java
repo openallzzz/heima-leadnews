@@ -31,4 +31,18 @@ public interface WmMaterialService extends IService<WmMaterial> {
      */
     public ResponseResult delPicture(@PathVariable("id") Integer id);
 
+    /**
+     * 根据id取消收藏素材
+     * @param id
+     * @return
+     */
+    public ResponseResult cancelCollect(@PathVariable("id") Integer id);
+
+    /**
+     * 根据id收藏素材
+     * @param id
+     * @return
+     */
+    public ResponseResult collect(@PathVariable("id") Integer id);
+
 }
