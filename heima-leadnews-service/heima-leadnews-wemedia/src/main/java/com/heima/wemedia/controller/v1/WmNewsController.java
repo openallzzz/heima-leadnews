@@ -22,9 +22,9 @@ public class WmNewsController {
         return wmNewsService.findList(dto);
     }
 
-    @PostMapping("/sbumit")
+    @PostMapping("/submit")
     public ResponseResult submitNews(@RequestBody WmNewsDto dto) {
-        return null;
+        return wmNewsService.submitNews(dto);
     }
 
 }

@@ -1,6 +1,7 @@
 package com.heima.wemedia.service.impl;
 
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -8,14 +9,17 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.heima.common.constants.WemediaConstants;
+import com.heima.common.exception.CustomException;
 import com.heima.model.common.dtos.PageResponseResult;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.common.enums.AppHttpCodeEnum;
 import com.heima.model.wemedia.dtos.WmNewsDto;
 import com.heima.model.wemedia.dtos.WmNewsPageReqDto;
+import com.heima.model.wemedia.pojos.WmMaterial;
 import com.heima.model.wemedia.pojos.WmNews;
 import com.heima.model.wemedia.pojos.WmNewsMaterial;
 import com.heima.utils.thread.WmThreadLocalUtil;
+import com.heima.wemedia.mapper.WmMaterialMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
 import com.heima.wemedia.mapper.WmNewsMaterialMapper;
 import com.heima.wemedia.service.WmNewsService;
@@ -26,7 +30,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -119,11 +127,69 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         saveOrUpdateWmNews(wmNews);
 
         // 2. 是草稿的情况
+        if(dto.getStatus().equals(WmNews.Status.NORMAL.getCode())) {
+            return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
+        }
 
         // 3. 不是草稿，保存文章内容图片与素材的引用关系
+        // 获取到文章内容中的图片信息
+        List<String> materials = ectractUrlInfo(dto.getContent());
+        saveRelativeInfoForContent(materials, wmNews.getId());
 
         // 4. 不是草稿，保存文章封面图片与素材的引用关系
-        return null;
+        return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
+    }
+
+    /**
+     * 处理文章内容图片与素材的关系
+     * @param materials
+     * @param id
+     */
+    private void saveRelativeInfoForContent(List<String> materials, Integer id) {
+        saveRelativeInfo(materials, id, WemediaConstants.WM_CONTENT_REFERENCE);
+    }
+
+    @Autowired
+    private WmMaterialMapper wmMaterialMapper;
+
+    /**
+     * 保存文章图片和素材的关系到数据库中
+     * @param materials
+     * @param id
+     * @param wmContentReference
+     */
+    private void saveRelativeInfo(List<String> materials, Integer id, Short wmContentReference) {
+        if(materials != null && !materials.isEmpty()) {
+            // 通过URL查询ID
+            List<WmMaterial> res = wmMaterialMapper
+                    .selectList(Wrappers.<WmMaterial>lambdaQuery().in(WmMaterial::getUrl, materials));
+
+            if (res == null || res.size() != materials.size()) {
+                // 素材存在失效情况，抛出异常
+                throw new CustomException(AppHttpCodeEnum.MATERIALS_REFERENCE_FAIL);
+            }
+
+            List<Integer> ids = res.stream().map(WmMaterial::getId).collect(Collectors.toList());
+
+            // 批量保存
+            wmNewsMaterialMapper.saveRelations(ids, id, wmContentReference);
+        }
+    }
+
+    /**
+     * 获取到文章内容中的图片信息
+     * @param content
+     * @return
+     */
+    private List<String> ectractUrlInfo(String content) {
+        List<String> res = new ArrayList<>();
+        List<Map> maps = JSON.parseArray(content, Map.class);
+        for (Map map : maps) {
+            if(map.get("type").equals("image")) {
+                String url = (String) map.get("value");
+                res.add(url);
+            }
+        } return res;
     }
 
     @Autowired
