@@ -58,27 +58,27 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         LambdaQueryWrapper<WmNews> lambdaQueryWrapper = new LambdaQueryWrapper();
 
         // 状态精确查询
-        if(dto.getStatus() != null) {
+        if (dto.getStatus() != null) {
             lambdaQueryWrapper.eq(WmNews::getStatus, dto.getStatus());
         }
 
         // 频道精确查询
-        if(dto.getChannelId() != null) {
+        if (dto.getChannelId() != null) {
             lambdaQueryWrapper.eq(WmNews::getChannelId, dto.getChannelId());
         }
 
         // 时间范围查询
-        if(dto.getBeginPubDate() != null && dto.getEndPubDate() != null) {
+        if (dto.getBeginPubDate() != null && dto.getEndPubDate() != null) {
             lambdaQueryWrapper.between(WmNews::getPublishTime, dto.getBeginPubDate(), dto.getEndPubDate());
         }
 
         // 关键字的模糊查询
-        if(StringUtils.isNotBlank(dto.getKeyword())) {
+        if (StringUtils.isNotBlank(dto.getKeyword())) {
             lambdaQueryWrapper.like(WmNews::getTitle, dto.getKeyword());
         }
 
         // 当前登录用户的文章
-        if(WmThreadLocalUtil.getUser() != null) {
+        if (WmThreadLocalUtil.getUser() != null) {
             lambdaQueryWrapper.eq(WmNews::getUserId, WmThreadLocalUtil.getUser().getId());
         } else {
             return ResponseResult.errorResult(AppHttpCodeEnum.NEED_LOGIN);
@@ -105,7 +105,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
     @Override
     public ResponseResult submitNews(WmNewsDto dto) {
         // 0. 参数判断
-        if(dto == null || dto.getContent() == null) {
+        if (dto == null || dto.getContent() == null) {
             return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
         }
 
@@ -114,20 +114,20 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         // 属性拷贝
         BeanUtils.copyProperties(dto, wmNews);
         // List -> String
-        if(dto.getImages() != null && dto.getImages().size() > 0) {
+        if (dto.getImages() != null && dto.getImages().size() > 0) {
             String imageStr = StringUtils.join(dto.getImages(), ",");
             wmNews.setImages(imageStr);
         }
 
         // 如果当前封面类型为自动 -1
-        if(dto.getType().equals(WemediaConstants.WM_NEWS_TYPE_AUTO)) {
+        if (dto.getType().equals(WemediaConstants.WM_NEWS_TYPE_AUTO)) {
             wmNews.setType(null);
         }
-        
+
         saveOrUpdateWmNews(wmNews);
 
         // 2. 是草稿的情况
-        if(dto.getStatus().equals(WmNews.Status.NORMAL.getCode())) {
+        if (dto.getStatus().equals(WmNews.Status.NORMAL.getCode())) {
             return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
         }
 
@@ -137,11 +137,57 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         saveRelativeInfoForContent(materials, wmNews.getId());
 
         // 4. 不是草稿，保存文章封面图片与素材的引用关系
+        saveRelativeInfoForCover(dto, wmNews, materials);
+
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
     /**
+     * 第一个功能：如果当前封面类型为自动，则设置封面类型的数据
+     * 匹配规则：
+     * 1，如果内容图片大于等于1，小于3  单图  type 1
+     * 2，如果内容图片大于等于3  多图  type 3
+     * 3. 如果内容没有图片，无图  type 0
+     * <p>
+     * 第二个功能：保存封面图片与素材的关系
+     *
+     * @param dto
+     * @param wmNews
+     * @param materials
+     */
+    private void saveRelativeInfoForCover(WmNewsDto dto, WmNews wmNews, List<String> materials) {
+        List<String> images = dto.getImages();
+
+        // 第一个功能：如果当前封面类型为自动，则设置封面类型的数据
+        if (dto.getType().equals(WemediaConstants.WM_NEWS_TYPE_AUTO)) {
+            if (materials.size() >= 3) { // 多图
+                wmNews.setType(WemediaConstants.WM_NEWS_MANY_IMAGE);
+                images = materials.stream().limit(3).collect(Collectors.toList());
+            } else if (materials.size() >= 1) { // 单图
+                wmNews.setType(WemediaConstants.WM_NEWS_SINGLE_IMAGE);
+                images = materials.stream().limit(1).collect(Collectors.toList());
+            } else { // 无图
+                wmNews.setType(WemediaConstants.WM_NEWS_NONE_IMAGE);
+            }
+
+            // 修改文章
+            if (images != null && images.size() > 0) {
+                wmNews.setImages(StringUtils.join(images, ","));
+            }
+
+            updateById(wmNews);
+        }
+
+        // 第二个功能：保存封面图片与素材的关系
+        if (images != null && images.size() > 0) {
+            saveRelativeInfo(images, wmNews.getId(), WemediaConstants.WM_COVER_REFERENCE);
+        }
+
+    }
+
+    /**
      * 处理文章内容图片与素材的关系
+     *
      * @param materials
      * @param id
      */
@@ -154,12 +200,13 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 保存文章图片和素材的关系到数据库中
+     *
      * @param materials
      * @param id
      * @param wmContentReference
      */
     private void saveRelativeInfo(List<String> materials, Integer id, Short wmContentReference) {
-        if(materials != null && !materials.isEmpty()) {
+        if (materials != null && !materials.isEmpty()) {
             // 通过URL查询ID
             List<WmMaterial> res = wmMaterialMapper
                     .selectList(Wrappers.<WmMaterial>lambdaQuery().in(WmMaterial::getUrl, materials));
@@ -178,6 +225,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
 
     /**
      * 获取到文章内容中的图片信息
+     *
      * @param content
      * @return
      */
@@ -185,11 +233,12 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         List<String> res = new ArrayList<>();
         List<Map> maps = JSON.parseArray(content, Map.class);
         for (Map map : maps) {
-            if(map.get("type").equals("image")) {
+            if (map.get("type").equals("image")) {
                 String url = (String) map.get("value");
                 res.add(url);
             }
-        } return res;
+        }
+        return res;
     }
 
     @Autowired
@@ -205,7 +254,7 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         wmNews.setPublishTime(new Date());
         wmNews.setEnable((short) 1); // 默认上架
 
-        if(wmNews.getId() == null) {
+        if (wmNews.getId() == null) {
             // 保存
             save(wmNews);
         } else {
