@@ -5,6 +5,7 @@ import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.wemedia.dtos.WmNewsDto;
 import com.heima.model.wemedia.dtos.WmNewsPageReqDto;
 import com.heima.model.wemedia.pojos.WmNews;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 
 public interface WmNewsService extends IService<WmNews> {
@@ -22,5 +23,12 @@ public interface WmNewsService extends IService<WmNews> {
      * @return
      */
     public ResponseResult submitNews(@RequestBody WmNewsDto dto);
+
+    /**
+     * 根据文章id查询文章
+     * @param id
+     * @return
+     */
+    public ResponseResult findOne(@PathVariable("id") Integer id);
 
 }
