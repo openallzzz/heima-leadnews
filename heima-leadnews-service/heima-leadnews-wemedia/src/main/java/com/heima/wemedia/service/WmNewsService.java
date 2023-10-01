@@ -38,4 +38,11 @@ public interface WmNewsService extends IService<WmNews> {
      */
     public ResponseResult delNews(@PathVariable("id") Integer id);
 
+    /**
+     * 上架文章或者下架文章
+     * @param wmNewsDto
+     * @return
+     */
+    public ResponseResult downOrUp(@RequestBody WmNewsDto wmNewsDto);
+
 }

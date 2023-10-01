@@ -199,6 +199,34 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
     }
 
     /**
+     * 上架文章或者下架文章
+     *
+     * @param wmNewsDto
+     * @return
+     */
+    @Override
+    public ResponseResult downOrUp(WmNewsDto wmNewsDto) {
+        if(wmNewsDto == null || wmNewsDto.getId() == null || wmNewsDto.getEnable() == null) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        List<WmNews> list = list(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, wmNewsDto.getId()));
+
+        if(list == null || list.size() == 0) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_NOT_EXIST);
+        }
+
+        if(!list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_DOWN_UP_FAIL);
+        }
+
+        update(Wrappers.<WmNews>lambdaUpdate()
+                .eq(WmNews::getId, wmNewsDto.getId()).set(WmNews::getEnable, wmNewsDto.getEnable()));
+
+        return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
+    }
+
+    /**
      * 第一个功能：如果当前封面类型为自动，则设置封面类型的数据
      * 匹配规则：
      * 1，如果内容图片大于等于1，小于3  单图  type 1
