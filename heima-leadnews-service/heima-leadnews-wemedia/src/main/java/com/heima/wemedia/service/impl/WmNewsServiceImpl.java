@@ -19,6 +19,7 @@ import com.heima.model.wemedia.pojos.WmMaterial;
 import com.heima.model.wemedia.pojos.WmNews;
 import com.heima.model.wemedia.pojos.WmNewsMaterial;
 import com.heima.utils.thread.WmThreadLocalUtil;
+import com.heima.wemedia.controller.v1.WmNewsController;
 import com.heima.wemedia.mapper.WmMaterialMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
 import com.heima.wemedia.mapper.WmNewsMaterialMapper;
@@ -161,6 +162,40 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         }
 
         return ResponseResult.okResult(news.get(0));
+    }
+
+    /**
+     * 根据文章id删除文章
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult delNews(Integer id) {
+        // 参数不合法
+        if(id == null || id < 1) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        List<WmNews> list = list(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, id));
+
+        // 不存在指定id对应的文章
+        if(list == null || list.size() == 0) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.DATA_NOT_EXIST);
+        }
+
+        // 文章已发布，不可进行删除操作
+        if(list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_ALREADY_PUBLISHED);
+        }
+
+        // 删除素材与文章之间的引用关系
+        wmNewsMaterialMapper.delete(Wrappers.<WmNewsMaterial>lambdaQuery().eq(WmNewsMaterial::getNewsId, id));
+
+        // 删除文章
+        remove(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, id));
+
+        return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
     /**

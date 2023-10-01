@@ -31,4 +31,11 @@ public interface WmNewsService extends IService<WmNews> {
      */
     public ResponseResult findOne(@PathVariable("id") Integer id);
 
+    /**
+     * 根据文章id删除文章
+     * @param id
+     * @return
+     */
+    public ResponseResult delNews(@PathVariable("id") Integer id);
+
 }
