@@ -1,6 +1,7 @@
 package com.heima.wemedia.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenImageScan;
 import com.heima.common.aliyun.GreenTextScan;
@@ -9,9 +10,12 @@ import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.wemedia.pojos.WmChannel;
 import com.heima.model.wemedia.pojos.WmNews;
+import com.heima.model.wemedia.pojos.WmSensitive;
 import com.heima.model.wemedia.pojos.WmUser;
+import com.heima.utils.common.SensitiveWordUtil;
 import com.heima.wemedia.mapper.WmChannelMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
+import com.heima.wemedia.mapper.WmSensitiveMapper;
 import com.heima.wemedia.mapper.WmUserMapper;
 import com.heima.wemedia.service.WmNewsAutoScanService;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -57,6 +62,12 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             // 从内容中提取纯文本和图片
             Map<String, Object> textAndImages = handlerTextAndImages(wmNews);
 
+            // 自管理的敏感词过滤
+            boolean isSensitive = handlerSensitiveScan((String) textAndImages.get("content"), wmNews);
+            if (!isSensitive) {
+                return;
+            }
+
             // 2. 审核文本内容
             boolean isTextScan = handlerTextScan((String) textAndImages.get("content"), wmNews);
             if (!isTextScan) {
@@ -72,13 +83,43 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             // 4. 审核成功，保存app端的相关文章数据
             ResponseResult result = saveAppArticle(wmNews);
 
-            if(!result.getCode().equals(200)) {
+            if (!result.getCode().equals(200)) {
                 throw new RuntimeException("WmNewsAutoScanServiceImpl - 文章保存至app端失败");
             }
 
             wmNews.setArticleId((Long) result.getData());
             updateNewsStatus(wmNews, (short) 9, "审核成功");
         }
+    }
+
+    @Autowired
+    private WmSensitiveMapper wmSensitiveMapper;
+
+    /**
+     * 自管理的敏感词审核
+     *
+     * @param content
+     * @param wmNews
+     * @return
+     */
+    private boolean handlerSensitiveScan(String content, WmNews wmNews) {
+        // 获取所有的敏感词
+        List<WmSensitive> wmSensitives =
+                wmSensitiveMapper.selectList(Wrappers.<WmSensitive>lambdaQuery().select(WmSensitive::getSensitives));
+        List<String> sensitiveList = wmSensitives.stream().map(WmSensitive::getSensitives).collect(Collectors.toList());
+
+        // 初始化敏感词库
+        SensitiveWordUtil.initMap(sensitiveList);
+
+        // 查看文章是否包含敏感词
+        Map<String, Integer> map = SensitiveWordUtil.matchWords(content);
+
+        if (map.size() > 0) {
+            updateNewsStatus(wmNews, (short) 2, "当前文章中存在违规内容: " + map);
+            return false;
+        }
+
+        return true;
     }
 
     @Qualifier("com.heima.apis.article.IArticleClient")
@@ -93,6 +134,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
 
     /**
      * 保存app端相关的文章数据
+     *
      * @param wmNews
      */
     private ResponseResult saveAppArticle(WmNews wmNews) {
@@ -107,19 +149,19 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
 
         // 频道
         WmChannel wmChannel = wmChannelMapper.selectById(wmNews.getChannelId());
-        if(wmChannel != null) {
+        if (wmChannel != null) {
             dto.setChannelName(wmChannel.getName());
         }
 
         // 作者
         dto.setAuthorId(wmNews.getUserId().longValue());
         WmUser wmUser = wmUserMapper.selectById(wmNews.getUserId());
-        if(wmUser != null) {
+        if (wmUser != null) {
             dto.setAuthorName(wmUser.getName());
         }
 
         // 设置文章id
-        if(wmNews.getArticleId() != null) {
+        if (wmNews.getArticleId() != null) {
             dto.setId(wmNews.getArticleId());
         }
         dto.setCreatedTime(new Date());
