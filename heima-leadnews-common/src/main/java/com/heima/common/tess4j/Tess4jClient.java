@@ -20,6 +20,9 @@ public class Tess4jClient {
     private String language;
 
     public String doOCR(BufferedImage image) throws TesseractException {
+        if(image == null) {
+            return "";
+        }
         //创建Tesseract对象
         ITesseract tesseract = new Tesseract();
         //设置字体库路径

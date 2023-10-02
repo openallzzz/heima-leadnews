@@ -78,11 +78,11 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
                 return;
             }
 
-            // 3. 审核文本内容
-            boolean isTextScan = handlerTextScan((String) textAndImages.get("content"), wmNews);
-            if (!isTextScan) {
-                return;
-            }
+            // 3. 审核文本内容 （弃用阿里云的内容安全接口）
+            // boolean isTextScan = handlerTextScan((String) textAndImages.get("content"), wmNews);
+            // if (!isTextScan) {
+            //     return;
+            // }
 
             // 4. 审核成功，保存app端的相关文章数据
             ResponseResult result = saveAppArticle(wmNews);
@@ -212,15 +212,17 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
                 String result = tess4jClient.doOCR(bufferedImage);
                 // 过滤文字
                 boolean isSensitive = handlerSensitiveScan(result, wmNews);
-                if(!isSensitive) return false;
+                if(!isSensitive) {
+                    updateNewsStatus(wmNews, (short) 2, "当前文章中存在违规内容");
+                    return false;
+                }
 
                 // imageList.add(bytes); // 阿里云审核使用图片使用到的
             }
         } catch (Exception e) {
+            flag = false;
             e.printStackTrace();
         }
-
-
 
         // 阿里云审核图片
         /*try {
@@ -241,9 +243,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             e.printStackTrace();
         }*/
 
-        // 人工审核
-        updateNewsStatus(wmNews, (short) 3, "当前文章中存在不确定片段");
-        return false;
+        return flag;
     }
 
     @Autowired
