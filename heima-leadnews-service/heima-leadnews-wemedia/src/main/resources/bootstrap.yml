@@ -14,3 +14,7 @@ spring:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
+
+tess4j:
+  data-path: E:\code\Java_workpace\hmtt\tess4j_library
+  language: chi_sim

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenImageScan;
 import com.heima.common.aliyun.GreenTextScan;
+import com.heima.common.tess4j.Tess4jClient;
 import com.heima.file.service.FileStorageService;
 import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
@@ -27,6 +28,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -68,15 +72,15 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
                 return;
             }
 
-            // 2. 审核文本内容
-            boolean isTextScan = handlerTextScan((String) textAndImages.get("content"), wmNews);
-            if (!isTextScan) {
+            // 2. 审核图片内容
+            boolean isImageScan = handlerImageScan((List<String>) textAndImages.get("images"), wmNews);
+            if (!isImageScan) {
                 return;
             }
 
-            // 3. 审核图片内容
-            boolean isImageScan = handlerImageScan((List<String>) textAndImages.get("images"), wmNews);
-            if (!isImageScan) {
+            // 3. 审核文本内容
+            boolean isTextScan = handlerTextScan((String) textAndImages.get("content"), wmNews);
+            if (!isTextScan) {
                 return;
             }
 
@@ -176,6 +180,9 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     @Autowired
     private GreenImageScan greenImageScan;
 
+    @Autowired
+    private Tess4jClient tess4jClient;
+
     /**
      * 审核图片
      *
@@ -191,17 +198,32 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
         }
 
         // 下载图片到minio中，并去重
-        /*images = images.stream().distinct().collect(Collectors.toList());
+        images = images.stream().distinct().collect(Collectors.toList());
 
         // 下面的流程无法正常通过，因为本人并没有开启阿里云内容安全的付费服务
-        List<byte[]> imageList = new ArrayList<>();
-        for(String image : images) {
-            byte[] bytes = fileStorageService.downLoadFile(image);
-            imageList.add(bytes);
+        // List<byte[]> imageList = new ArrayList<>(); // 阿里云审核图片使用到的
+        try {
+            for(String image : images) {
+                byte[] bytes = fileStorageService.downLoadFile(image);
+
+                ByteArrayInputStream in = new ByteArrayInputStream(bytes);
+                BufferedImage bufferedImage = ImageIO.read(in);
+                // 识别图片中的文字
+                String result = tess4jClient.doOCR(bufferedImage);
+                // 过滤文字
+                boolean isSensitive = handlerSensitiveScan(result, wmNews);
+                if(!isSensitive) return false;
+
+                // imageList.add(bytes); // 阿里云审核使用图片使用到的
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        // 审核图片
-        try {
+
+
+        // 阿里云审核图片
+        /*try {
             Map map = greenImageScan.imageScan(imageList);
             if(map != null) {
                 if(map.get("suggestion").equals("block")) {
