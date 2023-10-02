@@ -137,4 +137,23 @@ public class ApArticleServiceImpl extends ServiceImpl<ApArticleMapper, ApArticle
         return ResponseResult.okResult(article.getId());
     }
 
+    /**
+     * 根据文章id删除有关的所有数据
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public ResponseResult deleteArticle(Long id) {
+        if(id == null) {
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+        }
+
+        apArticleMapper.deleteById(id);
+        apArticleContentMapper.delete(Wrappers.<ApArticleContent>lambdaQuery().eq(ApArticleContent::getArticleId, id));
+        apArticleConfigMapper.delete(Wrappers.<ApArticleConfig>lambdaQuery().eq(ApArticleConfig::getArticleId, id));
+
+        return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
+    }
+
 }

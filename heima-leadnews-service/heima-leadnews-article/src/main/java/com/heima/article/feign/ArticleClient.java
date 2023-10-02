@@ -24,4 +24,9 @@ public class ArticleClient implements IArticleClient {
     public ResponseResult saveArticle(@RequestBody ArticleDto dto) {
         return apArticleService.saveArticle(dto);
     }
+
+    @Override
+    public ResponseResult deleteArticle(Long id) {
+        return apArticleService.deleteArticle(id);
+    }
 }

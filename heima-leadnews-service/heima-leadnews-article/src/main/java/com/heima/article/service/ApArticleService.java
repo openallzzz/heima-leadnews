@@ -24,4 +24,10 @@ public interface ApArticleService extends IService<ApArticle> {
      */
     public ResponseResult saveArticle(@RequestBody ArticleDto dto);
 
+    /**
+     * 根据文章id删除有关的所有数据
+     * @param id
+     * @return
+     */
+    ResponseResult deleteArticle(Long id);
 }

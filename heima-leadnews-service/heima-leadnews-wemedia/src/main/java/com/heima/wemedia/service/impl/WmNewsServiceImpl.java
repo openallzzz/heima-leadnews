@@ -2,12 +2,12 @@ package com.heima.wemedia.service.impl;
 
 
 import com.alibaba.fastjson.JSON;
-import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.heima.apis.article.IArticleClient;
 import com.heima.common.constants.WemediaConstants;
 import com.heima.common.exception.CustomException;
 import com.heima.model.common.dtos.PageResponseResult;
@@ -19,15 +19,16 @@ import com.heima.model.wemedia.pojos.WmMaterial;
 import com.heima.model.wemedia.pojos.WmNews;
 import com.heima.model.wemedia.pojos.WmNewsMaterial;
 import com.heima.utils.thread.WmThreadLocalUtil;
-import com.heima.wemedia.controller.v1.WmNewsController;
 import com.heima.wemedia.mapper.WmMaterialMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
 import com.heima.wemedia.mapper.WmNewsMaterialMapper;
+import com.heima.wemedia.service.WmNewsAutoScanService;
 import com.heima.wemedia.service.WmNewsService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +43,8 @@ import java.util.stream.Collectors;
 @Transactional
 public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> implements WmNewsService {
 
+    @Autowired
+    private WmNewsAutoScanService wmNewsAutoScanService;
 
     /**
      * 查询文章列表
@@ -140,6 +143,9 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         // 4. 不是草稿，保存文章封面图片与素材的引用关系
         saveRelativeInfoForCover(dto, wmNews, materials);
 
+        // 审核文章
+        wmNewsAutoScanService.autoScanWmNews(wmNews.getId());
+
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
@@ -164,6 +170,10 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         return ResponseResult.okResult(news.get(0));
     }
 
+    @Qualifier("com.heima.apis.article.IArticleClient")
+    @Autowired
+    private IArticleClient articleClient;
+
     /**
      * 根据文章id删除文章
      *
@@ -185,15 +195,23 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         }
 
         // 文章已发布，不可进行删除操作
-        if(list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
-            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_ALREADY_PUBLISHED);
-        }
+        // if(list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
+        //     return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_ALREADY_PUBLISHED);
+        // }
 
         // 删除素材与文章之间的引用关系
         wmNewsMaterialMapper.delete(Wrappers.<WmNewsMaterial>lambdaQuery().eq(WmNewsMaterial::getNewsId, id));
 
-        // 删除文章
+        // 删除文章（自媒体端）
         remove(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, id));
+
+        // 删除（app端）
+        if(list != null && list.size() == 1) {
+            ResponseResult result = articleClient.deleteArticle(list.get(0).getArticleId());
+            if(!result.getCode().equals(200)) {
+                return ResponseResult.errorResult(AppHttpCodeEnum.ARTICLE_DELETE_FAIL);
+            }
+        }
 
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }

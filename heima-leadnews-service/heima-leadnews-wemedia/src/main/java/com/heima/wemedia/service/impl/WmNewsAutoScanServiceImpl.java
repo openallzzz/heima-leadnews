@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -40,7 +39,13 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
      * @param id 自媒体文章id
      */
     @Override
-    public void autoScanWmNews(Integer id) {
+    @Async // 文章审核应该是异步的，其本身没有返回值
+    public void autoScanWmNews(Integer id) { // 走人工审核
+        try {
+            Thread.sleep(1000); // 文章审核之前的业务线还是比较长的，这里先等待一会
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         // 1. 查询自媒体文章
         WmNews wmNews = wmNewsMapper.selectById(id);
         if (wmNews == null) {
