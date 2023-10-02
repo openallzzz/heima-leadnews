@@ -1,14 +1,22 @@
 package com.heima.wemedia.service.impl;
 
 import com.alibaba.fastjson.JSONArray;
+import com.heima.apis.article.IArticleClient;
 import com.heima.common.aliyun.GreenImageScan;
 import com.heima.common.aliyun.GreenTextScan;
 import com.heima.file.service.FileStorageService;
+import com.heima.model.article.dtos.ArticleDto;
+import com.heima.model.common.dtos.ResponseResult;
+import com.heima.model.wemedia.pojos.WmChannel;
 import com.heima.model.wemedia.pojos.WmNews;
+import com.heima.model.wemedia.pojos.WmUser;
+import com.heima.wemedia.mapper.WmChannelMapper;
 import com.heima.wemedia.mapper.WmNewsMapper;
+import com.heima.wemedia.mapper.WmUserMapper;
 import com.heima.wemedia.service.WmNewsAutoScanService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -55,7 +63,61 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
             }
 
             // 4. 审核成功，保存app端的相关文章数据
+            ResponseResult result = saveAppArticle(wmNews);
+
+            if(!result.getCode().equals(200)) {
+                throw new RuntimeException("WmNewsAutoScanServiceImpl - 文章保存至app端失败");
+            }
+
+            wmNews.setArticleId((Long) result.getData());
+            updateNewsStatus(wmNews, (short) 9, "审核成功");
         }
+    }
+
+    @Autowired
+    private IArticleClient articleClient;
+
+    @Autowired
+    private WmChannelMapper wmChannelMapper;
+
+    @Autowired
+    private WmUserMapper wmUserMapper;
+
+    /**
+     * 保存app端相关的文章数据
+     * @param wmNews
+     */
+    private ResponseResult saveAppArticle(WmNews wmNews) {
+
+        ArticleDto dto = new ArticleDto();
+
+        // 属性拷贝
+        BeanUtils.copyProperties(wmNews, dto);
+
+        // 文章布局
+        dto.setLayout(wmNews.getType());
+
+        // 频道
+        WmChannel wmChannel = wmChannelMapper.selectById(wmNews.getChannelId());
+        if(wmChannel != null) {
+            dto.setChannelName(wmChannel.getName());
+        }
+
+        // 作者
+        dto.setAuthorId(wmNews.getUserId().longValue());
+        WmUser wmUser = wmUserMapper.selectById(wmNews.getUserId());
+        if(wmUser != null) {
+            dto.setAuthorName(wmUser.getName());
+        }
+
+        // 设置文章id
+        if(wmNews.getArticleId() != null) {
+            dto.setId(wmNews.getArticleId());
+        }
+        dto.setCreatedTime(new Date());
+
+        ResponseResult result = articleClient.saveArticle(dto);
+        return result;
     }
 
     @Autowired
@@ -170,7 +232,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     private Map<String, Object> handlerTextAndImages(WmNews wmNews) {
         StringBuilder stringBuilder = new StringBuilder();
         List<String> images = new ArrayList<>();
-        if (StringUtils.isBlank(wmNews.getContent())) {
+        if (!StringUtils.isBlank(wmNews.getContent())) {
             List<Map> maps = JSONArray.parseArray(wmNews.getContent(), Map.class);
             for (Map map : maps) {
                 if (map.get("type").equals("text")) {
