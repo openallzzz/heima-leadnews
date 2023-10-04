@@ -1,6 +1,7 @@
 package com.heima.schedule.service.impl;
 
 import com.alibaba.fastjson.JSON;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.heima.common.constants.ScheduleConstants;
 import com.heima.common.redis.CacheService;
 import com.heima.model.schedule.dtos.Task;
@@ -17,8 +18,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.annotation.PostConstruct;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 
 @Service
@@ -213,5 +216,44 @@ public class TaskServiceImpl implements TaskService {
             }
             log.info("【---延迟任务定时同步结束---】");
         }
+    }
+
+    /**
+     * 数据库任务定时同步到redis
+     */
+    @PostConstruct
+    @Scheduled(cron = "0 */5 * * * ?")
+    public void reloadData() {
+        log.info("【开始】数据库任务同步到redis中...");
+        // 清理缓存中的数据
+        clearCache();
+
+        // 查询符合条件的任务  小于未来5分钟的数据
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MINUTE, 5);
+        List<Taskinfo> taskinfos = taskinfoMapper
+                .selectList(Wrappers.<Taskinfo>lambdaQuery().lt(Taskinfo::getExecuteTime, calendar.getTime()));
+
+        // 把任务添加到redis
+        if(taskinfos != null && taskinfos.size() > 0) {
+            for (Taskinfo taskinfo : taskinfos) {
+                Task task = new Task();
+                BeanUtils.copyProperties(taskinfo, task);
+                task.setExecuteTime(taskinfo.getExecuteTime().getTime());
+                addTaskToCache(task);
+            }
+        }
+
+        log.info("【结束】数据库任务同步到redis中...");
+    }
+
+    /**
+     * 清理缓存中的数据
+     */
+    public void clearCache() {
+        Set<String> topicKeys = cacheService.scan(ScheduleConstants.TOPIC + "*");
+        Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
+        cacheService.delete(topicKeys);
+        cacheService.delete(futureKeys);
     }
 }
