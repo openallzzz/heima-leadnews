@@ -9,7 +9,7 @@ public class ScheduleConstants {
 
     public static final int CANCELLED=2;   //已取消状态
 
-    public static String FUTURE="future_";   //未来数据key前缀
+    public static String FUTURE="future";   //未来数据key前缀
 
-    public static String TOPIC="topic_";     //当前数据key前缀
+    public static String TOPIC="topic";     //当前数据key前缀
 }
