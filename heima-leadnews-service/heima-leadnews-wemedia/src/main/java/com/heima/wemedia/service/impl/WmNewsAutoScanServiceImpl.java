@@ -51,7 +51,7 @@ public class WmNewsAutoScanServiceImpl implements WmNewsAutoScanService {
     @Async // 文章审核应该是异步的，其本身没有返回值
     public void autoScanWmNews(Integer id) { // 走人工审核
         try {
-            Thread.sleep(1000); // 文章审核之前的业务线还是比较长的，这里先等待一会
+            Thread.sleep(2000); // 文章审核之前的业务线还是比较长的，这里先等待一会
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }

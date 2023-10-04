@@ -30,7 +30,7 @@ public class ScheduleClient implements IScheduleClient {
      * @param taskId
      * @return
      */
-    @GetMapping("/api/v1/task/{taskId}")
+    @GetMapping("/api/v1/task/cancel/{taskId}")
     public ResponseResult cancelTask(@PathVariable("taskId") long taskId) {
         return ResponseResult.okResult(taskService.cancelTask(taskId));
     }
@@ -42,9 +42,9 @@ public class ScheduleClient implements IScheduleClient {
      * @param priority
      * @return
      */
-    @GetMapping("/api/v1/task/{type}/{priority}")
+    @GetMapping("/api/v1/task/poll/{type}/{priority}")
     public ResponseResult poll(@PathVariable("type") int type,
-                               @PathVariable("proority") int priority) {
+                               @PathVariable("priority") int priority) {
         return ResponseResult.okResult(taskService.poll(type, priority));
     }
 }

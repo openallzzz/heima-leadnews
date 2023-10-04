@@ -1,5 +1,6 @@
 package com.heima.apis.schedule;
 
+import com.heima.apis.schedule.fallback.IScheduleClientFallback;
 import com.heima.model.common.dtos.ResponseResult;
 import com.heima.model.schedule.dtos.Task;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -8,9 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import javax.annotation.PostConstruct;
-
-@FeignClient("leadnews-schedule")
+@FeignClient(value = "leadnews-schedule", fallback = IScheduleClientFallback.class)
 public interface IScheduleClient {
 
     /**
@@ -28,7 +27,7 @@ public interface IScheduleClient {
      * @param taskId
      * @return
      */
-    @GetMapping("/api/v1/task/{taskId}")
+    @GetMapping("/api/v1/task/cancel/{taskId}")
     ResponseResult cancelTask(@PathVariable("taskId") long taskId);
 
     /**
@@ -38,8 +37,8 @@ public interface IScheduleClient {
      * @param priority
      * @return
      */
-    @GetMapping("/api/v1/task/{type}/{priority}")
+    @GetMapping("/api/v1/task/poll/{type}/{priority}")
     ResponseResult poll(@PathVariable("type") int type,
-                     @PathVariable("proority") int priority);
+                     @PathVariable("priority") int priority);
 
 }

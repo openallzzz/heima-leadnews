@@ -80,7 +80,7 @@ public class TaskServiceImpl implements TaskService {
         Task task = null;
         try {
             String key = type + ":" + priority;
-            String task_json = cacheService.lRightPop(ScheduleConstants.TOPIC + key);
+            String task_json = cacheService.lRightPop(ScheduleConstants.TOPIC + ":" + key);
             if (StringUtils.isNotBlank(task_json)) {
                 task = JSON.parseObject(task_json, Task.class);
                 // 更新数据库信息
@@ -205,7 +205,7 @@ public class TaskServiceImpl implements TaskService {
         String token = cacheService.tryLock("FUTURE_TASK_SYNC", 1000 * 30);
         if (StringUtils.isNotBlank(token)) {
             log.info("【---延迟任务定时同步开始---】");
-            Set<String> futurekeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
+            Set<String> futurekeys = cacheService.scan(ScheduleConstants.FUTURE + ":" + "*");
             for (String futureKey : futurekeys) {
                 String topicKey = ScheduleConstants.TOPIC + ":" + futureKey.split(ScheduleConstants.FUTURE + ":")[1];
                 Set<String> tasks = cacheService.zRangeByScore(futureKey, 0, System.currentTimeMillis());
@@ -251,8 +251,8 @@ public class TaskServiceImpl implements TaskService {
      * 清理缓存中的数据
      */
     public void clearCache() {
-        Set<String> topicKeys = cacheService.scan(ScheduleConstants.TOPIC + "*");
-        Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + "*");
+        Set<String> topicKeys = cacheService.scan(ScheduleConstants.TOPIC + ":" +  "*");
+        Set<String> futureKeys = cacheService.scan(ScheduleConstants.FUTURE + ":" + "*");
         cacheService.delete(topicKeys);
         cacheService.delete(futureKeys);
     }
