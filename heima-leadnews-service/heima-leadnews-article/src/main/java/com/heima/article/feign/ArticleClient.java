@@ -5,10 +5,7 @@ import com.heima.article.service.ApArticleService;
 import com.heima.model.article.dtos.ArticleDto;
 import com.heima.model.common.dtos.ResponseResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class ArticleClient implements IArticleClient {
@@ -26,7 +23,7 @@ public class ArticleClient implements IArticleClient {
         return apArticleService.saveArticle(dto);
     }
 
-    @PostMapping("/api/v1/article/delete/{id}")
+    @GetMapping("/api/v1/article/delete/{id}")
     public ResponseResult deleteArticle(@PathVariable("id") Long id) {
         return apArticleService.deleteArticle(id);
     }
