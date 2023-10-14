@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.heima.apis.article.IArticleClient;
 import com.heima.common.constants.WemediaConstants;
+import com.heima.common.constants.WmNewsMessageConstants;
 import com.heima.common.exception.CustomException;
 import com.heima.model.common.dtos.PageResponseResult;
 import com.heima.model.common.dtos.ResponseResult;
@@ -30,13 +31,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.DoubleToIntFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -223,6 +223,9 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
 
+    @Autowired
+    private KafkaTemplate kafkaTemplate;
+
     /**
      * 上架文章或者下架文章
      *
@@ -248,6 +251,14 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         if(wmNewsDto.getEnable() > -1 && wmNewsDto.getEnable() < 2) {
             update(Wrappers.<WmNews>lambdaUpdate()
                     .eq(WmNews::getId, wmNewsDto.getId()).set(WmNews::getEnable, wmNewsDto.getEnable()));
+            if(list.get(0).getArticleId() != null) {
+                // 发送消息，通知article修改文章的配置
+                Map<String, Object> map = new HashMap<>();
+                map.put("articleId", list.get(0).getArticleId());
+                map.put("enable", wmNewsDto.getEnable());
+                kafkaTemplate.send(WmNewsMessageConstants.WM_NEWS_UP_OR_DOWN_TOPIC,
+                        JSON.toJSONString(map));
+            }
         }
 
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
