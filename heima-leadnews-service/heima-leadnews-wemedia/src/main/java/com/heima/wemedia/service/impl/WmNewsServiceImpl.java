@@ -189,19 +189,20 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
     public ResponseResult delNews(Integer id) {
         // 参数不合法
         if(id == null || id < 1) {
-            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID);
+            return ResponseResult.errorResult(AppHttpCodeEnum.PARAM_INVALID, "参数不合法，请检查后重试");
         }
 
         List<WmNews> list = list(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, id));
 
         // 不存在指定id对应的文章
         if(list == null || list.size() == 0) {
-            return ResponseResult.errorResult(AppHttpCodeEnum.DATA_NOT_EXIST);
+            return ResponseResult.errorResult(AppHttpCodeEnum.DATA_NOT_EXIST, "文章不存在");
         }
 
         // 文章已发布，不可进行删除操作
         if(list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
-            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_ALREADY_PUBLISHED);
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_ALREADY_PUBLISHED,
+                    "文章已经发布，不可进行删除");
         }
 
         // 删除素材与文章之间的引用关系
@@ -214,7 +215,8 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         if(list != null && list.size() == 1) {
             ResponseResult result = articleClient.deleteArticle(list.get(0).getArticleId());
             if(!result.getCode().equals(200)) {
-                return ResponseResult.errorResult(AppHttpCodeEnum.ARTICLE_DELETE_FAIL);
+                return ResponseResult.errorResult(AppHttpCodeEnum.ARTICLE_DELETE_FAIL,
+                        "文章删除失败，调用文章服务时发生错误，请稍后重试");
             }
         }
 
@@ -236,15 +238,17 @@ public class WmNewsServiceImpl extends ServiceImpl<WmNewsMapper, WmNews> impleme
         List<WmNews> list = list(Wrappers.<WmNews>lambdaQuery().eq(WmNews::getId, wmNewsDto.getId()));
 
         if(list == null || list.size() == 0) {
-            return ResponseResult.okResult(AppHttpCodeEnum.NEWS_NOT_EXIST);
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_NOT_EXIST, "文章不存在");
         }
 
         if(!list.get(0).getStatus().equals(WmNews.Status.PUBLISHED.getCode())) {
-            return ResponseResult.okResult(AppHttpCodeEnum.NEWS_DOWN_UP_FAIL);
+            return ResponseResult.errorResult(AppHttpCodeEnum.NEWS_DOWN_UP_FAIL, "当前文章不是发布状态，不能上下架");
         }
 
-        update(Wrappers.<WmNews>lambdaUpdate()
-                .eq(WmNews::getId, wmNewsDto.getId()).set(WmNews::getEnable, wmNewsDto.getEnable()));
+        if(wmNewsDto.getEnable() > -1 && wmNewsDto.getEnable() < 2) {
+            update(Wrappers.<WmNews>lambdaUpdate()
+                    .eq(WmNews::getId, wmNewsDto.getId()).set(WmNews::getEnable, wmNewsDto.getEnable()));
+        }
 
         return ResponseResult.okResult(AppHttpCodeEnum.SUCCESS);
     }
